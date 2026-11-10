@@ -61,10 +61,11 @@ const rq=r=>new Promise((ok,er)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>er(
 const done=t=>new Promise((ok,er)=>{t.oncomplete=ok;t.onerror=()=>er(t.error)});
 
 // tema
-function theme(v){try{if(v)localStorage.setItem('bz-theme',v)}catch(e){}
-let t;try{t=localStorage.getItem('bz-theme')}catch(e){}
-if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme}
+// segue o tema do sistema (o CSS já usa prefers-color-scheme); o botão troca só até fechar o app
+try{localStorage.removeItem('bz-theme')}catch(e){}
+function theme(v){if(v)document.documentElement.dataset.theme=v;else delete document.documentElement.dataset.theme}
 theme();
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>theme());
 $('#th').onclick=()=>{const d=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');theme(d==='dark'?'light':'dark')};
 $('#mg').onclick=()=>{const e=$('#dl');e.style.display=e.style.display==='block'?'none':'block';lista()};
 
