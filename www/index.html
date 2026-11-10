@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Banzai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23fff'/%3E%3Cpath d='M6 14q26 6 52 0v7q-26 6-52 0z' fill='%23d62828'/%3E%3Crect x='12' y='26' width='40' height='5' fill='%23d62828'/%3E%3Crect x='17' y='21' width='5' height='36' fill='%23d62828'/%3E%3Crect x='42' y='21' width='5' height='36' fill='%23d62828'/%3E%3Crect x='29' y='21' width='6' height='9' fill='%23d62828'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#faf7f2;--card:#fff;--tx:#1d1b19;--mu:#7a746c;--bd:#e6e0d6;--ac:#d62828;--tag:#f3e3e0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141211;--card:#1f1c1a;--tx:#ece6df;--mu:#9a9189;--bd:#332f2b;--ac:#ef4b4b;--tag:#3a2523}}
+:root[data-theme="dark"]{--bg:#141211;--card:#1f1c1a;--tx:#ece6df;--mu:#9a9189;--bd:#332f2b;--ac:#ef4b4b;--tag:#3a2523}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,"Noto Sans JP",sans-serif}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+header{display:flex;align-items:center;gap:10px;padding:12px 16px;position:sticky;top:0;background:var(--bg);z-index:2}
+header h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
+button,label.btn{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer}
+button.p,label.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+main{max-width:720px;margin:0 auto;padding:0 16px 40px}
+#res{min-height:70vh}
+#q{width:100%;font-size:18px;padding:12px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);outline:none}
+#q:focus{border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-top:12px}
+.t{font-size:24px;font-weight:600}.r{color:var(--ac);margin-left:8px;font-size:15px}
+.tg{display:inline-block;background:var(--tag);color:var(--ac);border-radius:6px;padding:1px 7px;font-size:12px;margin:4px 4px 0 0}
+.d{color:var(--mu);font-size:12px;margin-top:6px}
+ol{margin:8px 0 0;padding-left:22px;line-height:1.5;white-space:pre-line}
+.mu{color:var(--mu);text-align:center;margin-top:30px}
+#st{font-size:13px;color:var(--mu);margin-top:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+#dl{display:none}
+</style>
+</head>
+<body>
+<header>
+<svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><path d="M4 12q28 7 56 0v8q-28 7-56 0z" fill="#d62828"/><rect x="12" y="27" width="40" height="5" fill="#d62828"/><rect x="17" y="22" width="5" height="36" fill="#d62828"/><rect x="42" y="22" width="5" height="36" fill="#d62828"/><rect x="29" y="22" width="6" height="9" fill="#d62828"/></svg>
+<h1>Banzai</h1>
+<button id="th" title="Tema">◐</button>
+<button id="mg" class="p">Dicionários</button>
+</header>
+<main>
+<input id="q" type="search" enterkeyhint="search" placeholder="Pesquisar (日本語, かな, romaji não)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+<div id="st"></div>
+<div id="res"></div>
+<div id="dl" class="card">
+<label class="btn p">Importar .zip (Yomitan/Hachidori)<input id="f" type="file" accept=".zip" multiple hidden></label>
+<div id="prog" class="d"></div>
+<div id="list"></div>
+</div>
+</main>
+<script src="jszip.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+let db;
+const open=()=>new Promise((ok,er)=>{const r=indexedDB.open('banzai',1);
+r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('dicts',{keyPath:'id',autoIncrement:true});
+const t=d.createObjectStore('terms',{autoIncrement:true});t.createIndex('term','term');t.createIndex('reading','reading');t.createIndex('dict','dict')};
+r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const rq=r=>new Promise((ok,er)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const done=t=>new Promise((ok,er)=>{t.oncomplete=ok;t.onerror=()=>er(t.error)});
+
+// tema
+function theme(v){try{if(v)localStorage.setItem('bz-theme',v)}catch(e){}
+let t;try{t=localStorage.getItem('bz-theme')}catch(e){}
+if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme}
+theme();
+$('#th').onclick=()=>{const d=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');theme(d==='dark'?'light':'dark')};
+$('#mg').onclick=()=>{const e=$('#dl');e.style.display=e.style.display==='block'?'none':'block';lista()};
+
+// conteúdo estruturado -> texto
+function sc(n){if(n==null)return'';if(typeof n==='string')return n;if(Array.isArray(n))return n.map(sc).join('');
+if(n.text)return n.text;if(n.content!==undefined){const t=sc(n.content);return['li','div','p','tr','br'].includes(n.tag)?t+'\n':t}return''}
+const hira=s=>s.replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+
+// importação
+$('#f').onchange=async e=>{
+for(const file of e.target.files){
+try{
+$('#prog').textContent='Lendo '+file.name+'…';
+const z=await JSZip.loadAsync(file);
+const idx=JSON.parse(await z.file('index.json').async('string'));
+const t=db.transaction('dicts','readwrite');const id=await rq(t.objectStore('dicts').add({title:idx.title||file.name,revision:idx.revision||''}));
+const banks=Object.keys(z.files).filter(n=>/term_bank_\d+\.json$/.test(n));
+let n=0;
+for(let i=0;i<banks.length;i++){
+const arr=JSON.parse(await z.file(banks[i]).async('string'));
+const tx=db.transaction('terms','readwrite');const s=tx.objectStore('terms');
+for(const a of arr){s.add({term:a[0],reading:a[1]||a[0],tags:a[2]||'',score:a[4]||0,gl:(a[5]||[]).map(sc).filter(Boolean),dict:id,dn:idx.title||file.name});n++}
+await done(tx);
+$('#prog').textContent=`${idx.title}: ${i+1}/${banks.length} arquivos, ${n} entradas…`}
+$('#prog').textContent=`${idx.title}: ${n} entradas importadas.`;
+}catch(err){$('#prog').textContent='Erro: '+err.message}
+}
+e.target.value='';lista()};
+
+async function lista(){
+const all=await rq(db.transaction('dicts').objectStore('dicts').getAll());
+$('#list').innerHTML=all.length?'':'<div class="d">Nenhum dicionário importado.</div>';
+for(const d of all){const r=document.createElement('div');r.className='row';
+r.innerHTML=`<span></span><button>Remover</button>`;r.firstChild.textContent=d.title;
+r.lastChild.onclick=async()=>{if(!confirm('Remover '+d.title+'?'))return;
+const tx=db.transaction(['terms','dicts'],'readwrite');const c=tx.objectStore('terms').index('dict').openKeyCursor(IDBKeyRange.only(d.id));
+const ts=tx.objectStore('terms');
+c.onsuccess=()=>{const cur=c.result;if(cur){ts.delete(cur.primaryKey);cur.continue()}};
+tx.objectStore('dicts').delete(d.id);await done(tx);lista()};
+$('#list').append(r)}}
+
+// pesquisa
+async function busca(q){
+q=q.trim();const out=$('#res');if(!q){out.innerHTML='<div class="mu">Digite uma palavra para pesquisar.</div>';$('#st').textContent='';return}
+const qs=[...new Set([q,hira(q)])];const seen=new Map();
+const s=db.transaction('terms').objectStore('terms');
+for(const x of qs)for(const ix of['term','reading']){
+await new Promise(ok=>{const c=s.index(ix).openCursor(IDBKeyRange.bound(x,x+'\uffff'));
+c.onsuccess=()=>{const cur=c.result;if(cur&&seen.size<200){seen.set(cur.primaryKey,cur.value);cur.continue()}else ok()}})}
+const L=[...seen.values()].sort((a,b)=>(b.term===q||b.reading===hira(q))-(a.term===q||a.reading===hira(q))||b.score-a.score||a.term.length-b.term.length).slice(0,60);
+$('#st').textContent=L.length+' resultado(s)';
+out.innerHTML=L.length?'':'<div class="mu">Nada encontrado.</div>';
+for(const e of L){const c=document.createElement('div');c.className='card';
+const h=document.createElement('div');const t=document.createElement('span');t.className='t';t.textContent=e.term;h.append(t);
+if(e.reading!==e.term){const r=document.createElement('span');r.className='r';r.textContent=e.reading;h.append(r)}
+c.append(h);
+const tags=document.createElement('div');for(const g of e.tags.split(' ').filter(Boolean)){const k=document.createElement('span');k.className='tg';k.textContent=g;tags.append(k)}c.append(tags);
+const ol=document.createElement('ol');for(const g of e.gl){const li=document.createElement('li');li.textContent=g.trim();ol.append(li)}c.append(ol);
+const d=document.createElement('div');d.className='d';d.textContent=e.dn;c.append(d);out.append(c)}}
+let tm;$('#q').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>busca(e.target.value),150)};
+open().then(async d=>{db=d;busca('');const n=await rq(db.transaction('dicts').objectStore('dicts').count());if(!n){$('#dl').style.display='block';lista()}});
+</script>
+</body>
+</html>

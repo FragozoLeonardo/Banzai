@@ -1,0 +1,10 @@
+{
+  "appId": "com.leo.banzai",
+  "appName": "Banzai",
+  "webDir": "www",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "disable"
+    }
+  }
+}
